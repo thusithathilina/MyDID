@@ -4,9 +4,16 @@ public final class DID {
 
     private static final String SCHEME = "did";
     private static final String METHOD = "ttd";
+    private final String namespace;
     private final String identifier;
 
     public DID(String identifier) {
+        namespace = "";
+        this.identifier = identifier;
+    }
+
+    public DID(String namespace, String identifier) {
+        this.namespace = namespace;
         this.identifier = identifier;
     }
 
@@ -22,7 +29,16 @@ public final class DID {
         return identifier;
     }
 
+    public String getNamespace() {
+        return namespace;
+    }
+
     public String getFullQualifiedDid() {
-        return SCHEME + ":" + METHOD + ":" + identifier;
+        StringBuilder didString = new StringBuilder();
+        didString.append(SCHEME).append(":").append(METHOD).append(":");
+        if (!namespace.equalsIgnoreCase(""))
+            didString.append(namespace).append(":");
+        didString.append(identifier);
+        return didString.toString();
     }
 }

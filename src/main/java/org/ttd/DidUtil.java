@@ -1,6 +1,5 @@
 package org.ttd;
 
-import io.ipfs.multibase.Base58;
 import io.ipfs.multibase.Multibase;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -19,11 +18,13 @@ public class DidUtil {
      * This generated the DID identifier based on indy DID generation method, which is
      * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
      * Base58(Truncate_msb(16(SHA256(publicKey))))
+     *
      * @param keyPair
+     * @param didNamespace
      * @return
      */
-    public static DIDDocument createDid(KeyPair keyPair) {
-        if (keyPair ==  null || keyPair.getPublic() == null || keyPair.getPrivate() == null)
+    public static DIDDocument createDidWithNameSpace(KeyPair keyPair, String didNamespace) {
+        if (keyPair == null || keyPair.getPublic() == null || keyPair.getPrivate() == null)
             throw new IllegalArgumentException("KeyPair cannot be null");
 
         PublicKey publicKey = keyPair.getPublic();
@@ -37,10 +38,23 @@ public class DidUtil {
             throw new RuntimeException("Couldn't create DID identifier");
 
         String didIdentifier = Multibase.encode(Multibase.Base.Base58BTC, bytes);
-        DID did = new DID(didIdentifier);
+        DID did;
+        if (didNamespace != null && !didNamespace.trim().equalsIgnoreCase(""))
+            did = new DID(didNamespace, didIdentifier);
+        else
+            did = new DID(didIdentifier);
         DIDDocument didDocument = new DIDDocument(did);
         didDocument.getContext().add(Constants.CONTEXT_W3C_DEFAULT);
         return didDocument;
+    }
+
+    /**
+     *
+     * @param keyPair
+     * @return
+     */
+    public static DIDDocument createDid(KeyPair keyPair) {
+        return createDidWithNameSpace(keyPair, "");
     }
 
 
@@ -54,5 +68,8 @@ public class DidUtil {
         KeyPair keyPair = generator.generateKeyPair();
         DIDDocument didDocument = createDid(keyPair);
         System.out.println(didDocument.getId().getFullQualifiedDid());
+
+        DIDDocument didDocument2 = createDidWithNameSpace(keyPair, "sg");
+        System.out.println(didDocument2.getId().getFullQualifiedDid());
     }
 }
