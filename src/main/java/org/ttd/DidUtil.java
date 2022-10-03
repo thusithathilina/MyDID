@@ -1,8 +1,17 @@
 package org.ttd;
 
 import io.ipfs.multibase.Multibase;
+import netscape.javascript.JSObject;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.json.JSONObject;
+import org.web3j.crypto.CipherException;
+import org.web3j.crypto.Wallet;
+import org.web3j.crypto.WalletUtils;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Paths;
 import java.security.*;
 import java.util.Arrays;
 import java.util.Random;
@@ -12,6 +21,9 @@ public class DidUtil {
 
     static {
         Security.addProvider(new BouncyCastleProvider());
+    }
+
+    public DidUtil() {
     }
 
     /**
@@ -45,6 +57,16 @@ public class DidUtil {
             did = new DID(didIdentifier);
         DIDDocument didDocument = new DIDDocument(did);
         didDocument.getContext().add(Constants.CONTEXT_W3C_DEFAULT);
+        VerificationMethod defaultVerification = new VerificationMethod();
+        try {
+            defaultVerification.setId(new DIDURL(did, null, null, "key-1"));
+            defaultVerification.setController(did);
+            defaultVerification.setType(VerificationsMaterials.PublicKeyMultibase);
+            defaultVerification.setVerificationMaterial(new PublicKeyMultibase("base58", publicKey));
+            didDocument.getVerificationMethods().add(defaultVerification);
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
         return didDocument;
     }
 
@@ -58,7 +80,7 @@ public class DidUtil {
     }
 
 
-    public static void main(String[] args) throws NoSuchAlgorithmException {
+    public static void main(String[] args) throws NoSuchAlgorithmException, URISyntaxException, InvalidAlgorithmParameterException, CipherException, IOException, NoSuchProviderException {
         Random random = ThreadLocalRandom.current();
         byte[] r = new byte[32];
         random.nextBytes(r);
@@ -67,9 +89,19 @@ public class DidUtil {
         generator.initialize(256, new SecureRandom(r));
         KeyPair keyPair = generator.generateKeyPair();
         DIDDocument didDocument = createDid(keyPair);
-        System.out.println(didDocument.getId().getFullQualifiedDid());
+        System.out.println(didDocument.getId().getFullQualifiedIdentifier());
 
         DIDDocument didDocument2 = createDidWithNameSpace(keyPair, "sg");
-        System.out.println(didDocument2.getId().getFullQualifiedDid());
+        JSONObject jsonObject = new JSONObject(didDocument);
+        System.out.println(jsonObject);
+        System.out.println(didDocument2.getId().getFullQualifiedIdentifier());
+
+        String idWithoutScheme = didDocument.getId().getFullQualifiedIdentifier().replace("did:", "");
+        DIDURL didurl = new DIDURL(didDocument.getId(), "/abc", "id=1", "core");
+        System.out.println(didurl.getFullQualifiedUrl());
+
+        String s = WalletUtils.generateNewWalletFile("abc123", Paths.get("/","Users", "thusithadayaratne", "Work", "DID", "MyWeb3jWallet").toFile());
+
+
     }
 }

@@ -2,24 +2,28 @@ package org.ttd;
 
 public class VerificationMethod {
 
-    private DID id;
-    private String type;
+    private DIDURL id;
+    private VerificationsMaterials type;
     private DID controller;
     private VerificationMaterial verificationMaterial;
 
-    public DID getId() {
+    public DIDURL getId() {
         return id;
     }
 
-    public void setId(DID id) {
+    public void setId(DIDURL id) {
         this.id = id;
     }
 
     public String getType() {
-        return type;
+        return type.name();
     }
 
     public void setType(String type) {
+        this.type = VerificationsMaterials.valueOf(type);
+    }
+
+    public void setType(VerificationsMaterials type) {
         this.type = type;
     }
 

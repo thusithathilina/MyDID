@@ -33,7 +33,7 @@ public final class DID {
         return namespace;
     }
 
-    public String getFullQualifiedDid() {
+    public String getFullQualifiedIdentifier() {
         StringBuilder didString = new StringBuilder();
         didString.append(SCHEME).append(":").append(METHOD).append(":");
         if (!namespace.equalsIgnoreCase(""))
