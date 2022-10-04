@@ -40,7 +40,7 @@ public class PublicKeyJwk implements VerificationMaterial {
     }
 
     @Override
-    public PublicKeyJwk getVerificationMaterial() {
+    public PublicKeyJwk getPublicKey() {
         return this;
     }
 }

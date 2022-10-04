@@ -21,7 +21,7 @@ public class PublicKeyMultibase implements VerificationMaterial {
     }
 
     @Override
-    public String getVerificationMaterial() {
+    public String getPublicKey() {
         return Multibase.encode(Multibase.Base.Base58BTC, publicKey.getEncoded());
     }
 }
