@@ -1,6 +1,7 @@
 package org.ttd;
 
 import io.ipfs.multibase.Multibase;
+import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -68,7 +69,11 @@ public class DidUtil {
         PublicKey publicKey = keyPair.getPublic();
         byte[] bytes = null;
         try {
-            bytes = Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(publicKey.getEncoded()), 16);
+            if (publicKey instanceof EdDSAPublicKey) {
+                var tmpPubkey = ((EdDSAPublicKey)keyPair.getPublic()).getPointEncoding();
+                bytes = Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(tmpPubkey), 16);
+            } else
+                throw new IllegalArgumentException("Only supports EdDSAPublicKey");
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
