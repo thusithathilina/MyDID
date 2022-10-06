@@ -1,5 +1,6 @@
 package org.ttd;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -7,7 +8,7 @@ import java.util.Set;
 public class DIDDocument {
     private Set<String> context;
     private DID id;
-    private Set<DID> alsoKnownAs;
+    private Set<URI> alsoKnownAs;
     private Set<DID> controllers;
     private Set<VerificationMethod> verificationMethods;
     private Set<VerificationMethod> authentications;
@@ -50,11 +51,11 @@ public class DIDDocument {
         this.id = id;
     }
 
-    public Set<DID> getAlsoKnownAs() {
+    public Set<URI> getAlsoKnownAs() {
         return alsoKnownAs;
     }
 
-    public void setAlsoKnownAs(Set<DID> alsoKnownAs) {
+    public void setAlsoKnownAs(Set<URI> alsoKnownAs) {
         this.alsoKnownAs = alsoKnownAs;
     }
 

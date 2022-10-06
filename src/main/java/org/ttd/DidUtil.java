@@ -5,6 +5,7 @@ import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyPair;
 import java.security.MessageDigest;
@@ -23,7 +24,7 @@ public class DidUtil {
     /**
      * This generated the DID identifier based on indy DID generation method, which is
      * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
-     * Base58(Truncate_msb(16(SHA256(publicKey))))
+     * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
      * @param keyPair
      * @param namespace
@@ -62,7 +63,7 @@ public class DidUtil {
         return createDidWithNamespace(keyPair, "", implicitController);
     }
 
-    public static DIDDocument createDidWithNamespace(KeyPair keyPair, String didNamespace, boolean implicitController) {
+    private static DIDDocument createDidWithNamespace(KeyPair keyPair, String didNamespace, boolean implicitController) {
         if (keyPair == null || keyPair.getPublic() == null || keyPair.getPrivate() == null)
             throw new IllegalArgumentException("KeyPair cannot be null");
 
@@ -70,7 +71,7 @@ public class DidUtil {
         byte[] bytes = null;
         try {
             if (publicKey instanceof EdDSAPublicKey) {
-                var tmpPubkey = ((EdDSAPublicKey)keyPair.getPublic()).getPointEncoding();
+                var tmpPubkey = ((EdDSAPublicKey)publicKey).getPointEncoding();
                 bytes = Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(tmpPubkey), 16);
             } else
                 throw new IllegalArgumentException("Only supports EdDSAPublicKey");
@@ -115,12 +116,12 @@ public class DidUtil {
 
         var alsoKnownAs = didDocument.getAlsoKnownAs();
         if (alsoKnownAs.size() == 1)
-            didDoc.put("controller", alsoKnownAs.iterator().next().getFullQualifiedIdentifier());
+            didDoc.put("controller", alsoKnownAs.iterator().next().toString());
         else if (alsoKnownAs.size() > 0) {
-            Iterator<DID> iterator = alsoKnownAs.iterator();
+            Iterator<URI> iterator = alsoKnownAs.iterator();
             List<String> tmp = new ArrayList<>();
             while (iterator.hasNext()) {
-                tmp.add(iterator.next().getFullQualifiedIdentifier());
+                tmp.add(iterator.next().toString());
             }
             didDoc.put("alsoKnownAs", tmp);
         }
@@ -172,4 +173,86 @@ public class DidUtil {
         return didDoc;
     }
 
+    /**
+     * Converts the string/JSON representation of a DID Document to DIDDocument object
+     *
+     * @param didDocRepresentation String/JSON representation of the did document
+     * @return corresponding DIDDocument of the String/JSON representation
+     * @throws URISyntaxException
+     */
+    public static DIDDocument stringToDIDDocument(String didDocRepresentation) throws URISyntaxException {
+        JSONObject jsonDoc = new JSONObject(didDocRepresentation);
+        String didIdentifier = jsonDoc.get("id").toString();
+        DIDDocument didDocument = new DIDDocument(stringToDID(didIdentifier));
+
+        var tmp = jsonDoc.opt("alsoKnownAs");
+        if (tmp != null) {
+            if (tmp instanceof String)
+                didDocument.getAlsoKnownAs().add(new URI(tmp.toString()));
+            else if (tmp instanceof JSONArray) {
+                for (Object o : (JSONArray) tmp)
+                    didDocument.getAlsoKnownAs().add(new URI(o.toString()));
+            }
+            else
+                throw new IllegalArgumentException("Invalid DID document. " + tmp);
+        }
+
+        tmp = jsonDoc.opt("controller");
+        if (tmp != null) {
+            if (tmp instanceof String)
+                didDocument.getControllers().add(stringToDID(tmp.toString()));
+            else if (tmp instanceof JSONArray) {
+                for (Object o : (JSONArray) tmp)
+                    didDocument.getControllers().add(stringToDID(o.toString()));
+            }
+            else
+                throw new IllegalArgumentException("Invalid DID document. " + tmp);
+        }
+
+        tmp = jsonDoc.opt("verificationMethod");
+        if (tmp != null) {
+            if (tmp instanceof JSONArray) {
+                for (Object o : (JSONArray) tmp) {
+                    JSONObject jsonVm = (JSONObject)o;
+                    VerificationMethod vm = new VerificationMethod();
+                    vm.setType(jsonVm.get("type").toString());
+                    vm.setController(stringToDID(jsonVm.get("controller").toString()));
+                    vm.setId(stringToDidUrl(jsonVm.get("Id").toString()));
+                    didDocument.getVerificationMethods().add(vm);
+                }
+
+            }
+            else
+                throw new IllegalArgumentException("Invalid DID document. " + tmp);
+        }
+        return didDocument;
+    }
+
+    /**
+     * Convert the string representation of a DID to DID object
+     * @param didString String representation of the DID
+     * @return DID object representation of the given string
+     */
+    public static DID stringToDID(String didString) {
+        didString = didString.replace(DID.SCHEME + ":", "").replace(DID.METHOD + ":", "");
+        DID did;
+        if (didString.contains(":")) {
+            var tmp = didString.split(":");
+            did = new DID(tmp[0], tmp[1]);
+        } else
+            did = new DID(didString);
+        return did;
+    }
+
+    /**
+     * Convert the string representation of a DID URL to DIDURL object
+     * @param didUrlString string representation of a DID URL
+     * @return Corresponding DIDURL object of the string representation
+     * @throws URISyntaxException
+     */
+    public static DIDURL stringToDidUrl(String didUrlString) throws URISyntaxException {
+        URI tmp = new URI(didUrlString);
+        DID did = DidUtil.stringToDID(tmp.getSchemeSpecificPart());
+        return new DIDURL(did, tmp.getPath(), tmp.getQuery(), tmp.getFragment());
+    }
 }

@@ -2,8 +2,8 @@ package org.ttd;
 
 public final class DID {
 
-    private static final String SCHEME = "did";
-    private static final String METHOD = "ttd";
+    public static final String SCHEME = "did";
+    public static final String METHOD = "ttd";
     private final String namespace;
     private final String identifier;
 
