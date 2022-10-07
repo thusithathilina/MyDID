@@ -1,4 +1,4 @@
-package org.ttd;
+package org.ttd.did.sdk;
 
 import java.time.LocalDateTime;
 import java.util.Set;

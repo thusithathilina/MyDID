@@ -1,4 +1,4 @@
-package org.ttd;
+package org.ttd.did.sdk;
 
 public class Constants {
     public static final String CONTEXT_W3C_DEFAULT = "https://www.w3.org/ns/did/v1";

@@ -1,4 +1,4 @@
-package org.ttd;
+package org.ttd.did.sdk;
 
 import io.ipfs.multibase.Multibase;
 import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
@@ -25,8 +25,8 @@ public class DidUtil {
      * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
      * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
-     * @param keyPair default key pair to represent the ownership of the DID
-     * @param namespace additional namespace to append after method name. e.g. did:<method-name>:<namespace>:<identifier>
+     * @param keyPair            default key pair to represent the ownership of the DID
+     * @param namespace          additional namespace to append after method name. e.g. did:<method-name>:<namespace>:<identifier>
      * @param implicitController set the key pair to be the default controller of the DID
      * @return DIDDocument corresponding to the generated DID
      */
@@ -39,7 +39,7 @@ public class DidUtil {
      * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
      * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
-     * @param keyPair default key pair to represent the ownership of the DID
+     * @param keyPair   default key pair to represent the ownership of the DID
      * @param namespace additional namespace to append after method name. e.g. did:<method-name>:<namespace>:<identifier>
      * @return DIDDocument corresponding to the generated DID
      */
@@ -64,7 +64,7 @@ public class DidUtil {
      * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
      * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
-     * @param keyPair default key pair to represent the ownership of the DID
+     * @param keyPair            default key pair to represent the ownership of the DID
      * @param implicitController set the key pair to be the default controller of the DID
      * @return DIDDocument corresponding to the generated DID
      */
@@ -184,16 +184,28 @@ public class DidUtil {
     }
 
     /**
-     * Converts the string/JSON representation of a DID Document to DIDDocument object
+     * Converts the string representation of a DID Document to DIDDocument object
      *
-     * @param didDocRepresentation String/JSON representation of the did document
+     * @param didDocRepresentation String representation of the did document
      * @return corresponding DIDDocument of the String/JSON representation
      * @throws URISyntaxException
      * @throws NoSuchAlgorithmException
      * @throws InvalidKeySpecException
      */
     public static DIDDocument stringToDIDDocument(String didDocRepresentation) throws URISyntaxException, NoSuchAlgorithmException, InvalidKeySpecException {
-        JSONObject jsonDoc = new JSONObject(didDocRepresentation);
+        return jsonToDIDDocument(new JSONObject(didDocRepresentation));
+    }
+
+    /**
+     * Converts the JSON representation of a DID Document to DIDDocument object
+     *
+     * @param jsonDoc JSONObject representation of the did document
+     * @return corresponding DIDDocument of the String/JSON representation
+     * @throws URISyntaxException
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeySpecException
+     */
+    public static DIDDocument jsonToDIDDocument(JSONObject jsonDoc) throws URISyntaxException, NoSuchAlgorithmException, InvalidKeySpecException {
         String didIdentifier = jsonDoc.get("id").toString();
         DIDDocument didDocument = new DIDDocument(stringToDID(didIdentifier));
 

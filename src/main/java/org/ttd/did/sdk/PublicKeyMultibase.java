@@ -1,4 +1,4 @@
-package org.ttd;
+package org.ttd.did.sdk;
 
 import io.ipfs.multibase.Multibase;
 import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
