@@ -2,15 +2,14 @@ package org.ttd;
 
 import io.ipfs.multibase.Multibase;
 import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
+import org.bouncycastle.jcajce.spec.RawEncodedKeySpec;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.KeyPair;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -26,38 +25,48 @@ public class DidUtil {
      * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
      * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
-     * @param keyPair
-     * @param namespace
-     * @return
+     * @param keyPair default key pair to represent the ownership of the DID
+     * @param namespace additional namespace to append after method name. e.g. did:<method-name>:<namespace>:<identifier>
+     * @param implicitController set the key pair to be the default controller of the DID
+     * @return DIDDocument corresponding to the generated DID
      */
     public static DIDDocument createDid(KeyPair keyPair, String namespace, boolean implicitController) {
         return createDidWithNamespace(keyPair, namespace, implicitController);
     }
 
     /**
+     * This generated the DID identifier based on indy DID generation method, which is
+     * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
+     * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
-     * @param keyPair
-     * @param namespace
-     * @return
+     * @param keyPair default key pair to represent the ownership of the DID
+     * @param namespace additional namespace to append after method name. e.g. did:<method-name>:<namespace>:<identifier>
+     * @return DIDDocument corresponding to the generated DID
      */
     public static DIDDocument createDid(KeyPair keyPair, String namespace) {
         return createDidWithNamespace(keyPair, namespace, true);
     }
 
     /**
+     * This generated the DID identifier based on indy DID generation method, which is
+     * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
+     * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
-     * @param keyPair
-     * @return
+     * @param keyPair default key pair to represent the ownership of the DID
+     * @return DIDDocument corresponding to the generated DID
      */
     public static DIDDocument createDid(KeyPair keyPair) {
         return createDidWithNamespace(keyPair, "", true);
     }
 
     /**
+     * This generated the DID identifier based on indy DID generation method, which is
+     * base58 encoding of the first 16 bytes of the SHA256 of the Verification Method public key
+     * e.g. did <- Base58(Truncate_msb(16(SHA256(publicKey))))
      *
-     * @param keyPair
-     * @param implicitController
-     * @return
+     * @param keyPair default key pair to represent the ownership of the DID
+     * @param implicitController set the key pair to be the default controller of the DID
+     * @return DIDDocument corresponding to the generated DID
      */
     public static DIDDocument createDid(KeyPair keyPair, boolean implicitController) {
         return createDidWithNamespace(keyPair, "", implicitController);
@@ -71,7 +80,7 @@ public class DidUtil {
         byte[] bytes = null;
         try {
             if (publicKey instanceof EdDSAPublicKey) {
-                var tmpPubkey = ((EdDSAPublicKey)publicKey).getPointEncoding();
+                var tmpPubkey = ((EdDSAPublicKey) publicKey).getPointEncoding();
                 bytes = Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(tmpPubkey), 16);
             } else
                 throw new IllegalArgumentException("Only supports EdDSAPublicKey");
@@ -106,6 +115,7 @@ public class DidUtil {
 
     /**
      * This generates the JSON representation of the DID Document
+     *
      * @param didDocument DIDDocument object that needs to be represented as a JSON Object
      * @return JSONObject representation of the DID Document
      */
@@ -179,8 +189,10 @@ public class DidUtil {
      * @param didDocRepresentation String/JSON representation of the did document
      * @return corresponding DIDDocument of the String/JSON representation
      * @throws URISyntaxException
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeySpecException
      */
-    public static DIDDocument stringToDIDDocument(String didDocRepresentation) throws URISyntaxException {
+    public static DIDDocument stringToDIDDocument(String didDocRepresentation) throws URISyntaxException, NoSuchAlgorithmException, InvalidKeySpecException {
         JSONObject jsonDoc = new JSONObject(didDocRepresentation);
         String didIdentifier = jsonDoc.get("id").toString();
         DIDDocument didDocument = new DIDDocument(stringToDID(didIdentifier));
@@ -192,8 +204,7 @@ public class DidUtil {
             else if (tmp instanceof JSONArray) {
                 for (Object o : (JSONArray) tmp)
                     didDocument.getAlsoKnownAs().add(new URI(o.toString()));
-            }
-            else
+            } else
                 throw new IllegalArgumentException("Invalid DID document. " + tmp);
         }
 
@@ -204,25 +215,41 @@ public class DidUtil {
             else if (tmp instanceof JSONArray) {
                 for (Object o : (JSONArray) tmp)
                     didDocument.getControllers().add(stringToDID(o.toString()));
-            }
-            else
+            } else
                 throw new IllegalArgumentException("Invalid DID document. " + tmp);
         }
 
         tmp = jsonDoc.opt("verificationMethod");
         if (tmp != null) {
             if (tmp instanceof JSONArray) {
+                KeyFactory keyFactory = KeyFactory.getInstance("Ed25519");
                 for (Object o : (JSONArray) tmp) {
-                    JSONObject jsonVm = (JSONObject)o;
+                    JSONObject jsonVm = (JSONObject) o;
                     VerificationMethod vm = new VerificationMethod();
                     vm.setType(jsonVm.get("type").toString());
                     vm.setController(stringToDID(jsonVm.get("controller").toString()));
-                    vm.setId(stringToDidUrl(jsonVm.get("Id").toString()));
+                    vm.setId(stringToDIDURL(jsonVm.get("id").toString()));
+                    byte[] key = Multibase.decode(jsonVm.get("publicKeyBase58").toString());
+                    PublicKey pubKey = keyFactory.generatePublic(new RawEncodedKeySpec(key));
+                    vm.setVerificationMaterial(new PublicKeyMultibase("base58", pubKey));
                     didDocument.getVerificationMethods().add(vm);
                 }
+            } else
+                throw new IllegalArgumentException("Invalid DID document. " + tmp);
+        }
 
-            }
-            else
+        tmp = jsonDoc.opt("service");
+        if (tmp != null) {
+            if (tmp instanceof JSONArray) {
+                for (Object o : (JSONArray) tmp) {
+                    JSONObject jsonVm = (JSONObject) o;
+                    Service service = new Service();
+                    service.setType(jsonVm.get("type").toString());
+                    service.setId(new URI(jsonVm.get("id").toString()));
+                    service.setServiceEndpoint(new URI(jsonVm.get("serviceEndpoint").toString()));
+                    didDocument.getServices().add(service);
+                }
+            } else
                 throw new IllegalArgumentException("Invalid DID document. " + tmp);
         }
         return didDocument;
@@ -230,6 +257,7 @@ public class DidUtil {
 
     /**
      * Convert the string representation of a DID to DID object
+     *
      * @param didString String representation of the DID
      * @return DID object representation of the given string
      */
@@ -246,11 +274,12 @@ public class DidUtil {
 
     /**
      * Convert the string representation of a DID URL to DIDURL object
+     *
      * @param didUrlString string representation of a DID URL
      * @return Corresponding DIDURL object of the string representation
      * @throws URISyntaxException
      */
-    public static DIDURL stringToDidUrl(String didUrlString) throws URISyntaxException {
+    public static DIDURL stringToDIDURL(String didUrlString) throws URISyntaxException {
         URI tmp = new URI(didUrlString);
         DID did = DidUtil.stringToDID(tmp.getSchemeSpecificPart());
         return new DIDURL(did, tmp.getPath(), tmp.getQuery(), tmp.getFragment());
