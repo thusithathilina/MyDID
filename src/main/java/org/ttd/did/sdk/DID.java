@@ -13,6 +13,7 @@ public final class DID {
     }
 
     public DID(String namespace, String identifier) {
+        validateNamespace(namespace);
         this.namespace = namespace;
         this.identifier = identifier;
     }
@@ -40,5 +41,12 @@ public final class DID {
             didString.append(namespace).append(":");
         didString.append(identifier);
         return didString.toString();
+    }
+
+    private static void validateNamespace(String namespace) {
+        namespace.chars().forEach(c -> {
+            if (!(Character.isAlphabetic(c) || Character.isDigit(c)))
+                throw new IllegalArgumentException("namespace only allow alphanumeric characters");
+        });
     }
 }

@@ -12,6 +12,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.ttd.algorand.AlgorandUtil;
+import org.ttd.did.sdk.DID;
 import org.ttd.did.sdk.DIDDocument;
 import org.ttd.did.sdk.DidUtil;
 
@@ -29,6 +30,7 @@ public class Main {
     private static String token = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     public static void main(String[] args) throws Exception {
+        DID dd = new DID("g$", "g");
         KeyPairGenerator generator = KeyPairGenerator.getInstance("Ed25519");
         generator.initialize(256, new SecureRandom());
         KeyPair keyPair = generator.generateKeyPair();
@@ -40,10 +42,9 @@ public class Main {
         KmdApi kmdApi = AlgorandUtil.createKmdApi();
         String defaultWalletHandle = AlgorandUtil.AlgorandSandboxPrivateNode.getDefaultWalletHandle(kmdApi);
         List<Address> walletAddresses = AlgorandUtil.getWalletAddresses(kmdApi, defaultWalletHandle);
-        byte[] privateKey = AlgorandUtil.getPrivateKeyFromWallet(kmdApi, walletAddresses.get(0), defaultWalletHandle, "");
+        byte[] sk = AlgorandUtil.getPrivateKeyFromWallet(kmdApi, walletAddresses.get(0), defaultWalletHandle, "");
 
-
-        AlgorandUtil.storeDID(algodClient, account, didDocument, true);
+        AlgorandUtil.storeDID(algodClient, new Account(sk), didDocument);
         IndexerClient indexerClient = AlgorandUtil.createIndexerClient();
         JSONObject document = AlgorandUtil.getDIDDocument(indexerClient, didDocument.getId());
         DIDDocument didDocument1 = DidUtil.jsonToDIDDocument(document);
