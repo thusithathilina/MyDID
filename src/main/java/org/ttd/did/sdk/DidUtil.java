@@ -2,7 +2,6 @@ package org.ttd.did.sdk;
 
 import io.ipfs.multibase.Multibase;
 import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
-import org.bouncycastle.jcajce.spec.RawEncodedKeySpec;
 import org.fisco.bcos.sdk.crypto.exceptions.UnsupportedCryptoTypeException;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -12,6 +11,7 @@ import java.net.URISyntaxException;
 import java.security.*;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -256,7 +256,7 @@ public class DidUtil {
                         keyFactory = KeyFactory.getInstance(Constants.ED25519);
                     else
                         throw new UnsupportedCryptoTypeException("This only supports generale EC or Edward curves");
-                    PublicKey pubKey = keyFactory.generatePublic(new RawEncodedKeySpec(key));
+                    PublicKey pubKey = keyFactory.generatePublic(new X509EncodedKeySpec(key));
                     vm.setVerificationMaterial(new PublicKeyMultibase("base58", pubKey));
                     didDocument.getVerificationMethods().add(vm);
                 }
