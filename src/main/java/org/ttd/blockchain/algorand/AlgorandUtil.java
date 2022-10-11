@@ -1,4 +1,4 @@
-package org.ttd.algorand;
+package org.ttd.blockchain.algorand;
 
 import com.algorand.algosdk.account.Account;
 import com.algorand.algosdk.crypto.Address;

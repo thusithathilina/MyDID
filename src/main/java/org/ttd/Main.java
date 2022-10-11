@@ -10,7 +10,7 @@ import io.ipfs.multibase.Multibase;
 import org.bouncycastle.crypto.prng.FixedSecureRandom;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.json.JSONObject;
-import org.ttd.algorand.AlgorandUtil;
+import org.ttd.blockchain.algorand.AlgorandUtil;
 import org.ttd.did.sdk.DIDDocument;
 import org.ttd.did.sdk.DidUtil;
 
