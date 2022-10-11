@@ -3,80 +3,128 @@ package org.ttd;
 import com.algorand.algosdk.account.Account;
 import com.algorand.algosdk.crypto.Address;
 import com.algorand.algosdk.kmd.client.api.KmdApi;
+import com.algorand.algosdk.mnemonic.Mnemonic;
 import com.algorand.algosdk.v2.client.common.AlgodClient;
 import com.algorand.algosdk.v2.client.common.IndexerClient;
 import io.ipfs.multibase.Multibase;
-import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
-import org.bouncycastle.crypto.signers.Ed25519Signer;
+import org.bouncycastle.crypto.prng.FixedSecureRandom;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.ttd.algorand.AlgorandUtil;
-import org.ttd.did.sdk.DID;
 import org.ttd.did.sdk.DIDDocument;
 import org.ttd.did.sdk.DidUtil;
 
+import javax.crypto.Cipher;
+import javax.crypto.KeyAgreement;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class Main {
 
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
-    private static String token = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     public static void main(String[] args) throws Exception {
-        DID dd = new DID("g$", "g");
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("Ed25519");
-        generator.initialize(256, new SecureRandom());
-        KeyPair keyPair = generator.generateKeyPair();
 
-        DIDDocument didDocument = DidUtil.createDid(keyPair);
+        // part 1 - generating DIDs and DIDDocuments
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("EC", "BC");
+
+        byte[] keyBytesForSender = Mnemonic.toKey("sponsor ride say achieve senior height crumble promote " +
+                "universe write dove bomb faculty side human taste paper grocery robot grab reason fork soul above " +
+                "sphere");
+        generator.initialize(256, new FixedSecureRandom(keyBytesForSender));
+        KeyPair keyPairSender = generator.generateKeyPair();
+        DIDDocument didDocSender = DidUtil.createDid(keyPairSender);
+
+        byte[] keyBytesForReceiver = Mnemonic.toKey("ensure utility furnace screen have goose perfect " +
+                "alone civil foam jealous pretty spatial museum prevent diary garlic adapt document heavy control " +
+                "track rhythm able half");
+        generator.initialize(256, new FixedSecureRandom(keyBytesForReceiver));
+        KeyPair keyPairReceiver = generator.generateKeyPair();
+        DIDDocument didDocReceiver = DidUtil.createDid(keyPairReceiver);
+
+
+        // part 2 - Storing generated DIDDocuments on Algorand blockchain and retrieving them back
         AlgodClient algodClient = AlgorandUtil.createAlgodClient();
-        Account account = new Account(keyPair);
 
         KmdApi kmdApi = AlgorandUtil.createKmdApi();
         String defaultWalletHandle = AlgorandUtil.AlgorandSandboxPrivateNode.getDefaultWalletHandle(kmdApi);
         List<Address> walletAddresses = AlgorandUtil.getWalletAddresses(kmdApi, defaultWalletHandle);
         byte[] sk = AlgorandUtil.getPrivateKeyFromWallet(kmdApi, walletAddresses.get(0), defaultWalletHandle, "");
+        Account steward = new Account(sk);
 
-        AlgorandUtil.storeDID(algodClient, new Account(sk), didDocument);
         IndexerClient indexerClient = AlgorandUtil.createIndexerClient();
-        JSONObject document = AlgorandUtil.getDIDDocument(indexerClient, didDocument.getId());
-        DIDDocument didDocument1 = DidUtil.jsonToDIDDocument(document);
+
+        JSONObject documentSender = AlgorandUtil.getDIDDocument(indexerClient, didDocSender.getId());
+        if (documentSender == null) {
+            AlgorandUtil.storeDID(algodClient, steward, didDocSender);
+            Thread.sleep(1000); // this is to ensure that indexer indexed the transaction.
+            documentSender = AlgorandUtil.getDIDDocument(indexerClient, didDocSender.getId());
+        }
+
+        JSONObject documentReceiver = AlgorandUtil.getDIDDocument(indexerClient, didDocReceiver.getId());
+        if (documentReceiver == null) {
+            AlgorandUtil.storeDID(algodClient, steward, didDocReceiver);
+            Thread.sleep(1000);
+            documentReceiver = AlgorandUtil.getDIDDocument(indexerClient, didDocReceiver.getId());
+        }
+
+        DIDDocument didDocSenderOnChain = DidUtil.jsonToDIDDocument(Objects.requireNonNull(documentSender));
+        DIDDocument didDocReceiverOnChain = DidUtil.jsonToDIDDocument(Objects.requireNonNull(documentReceiver));
 
 
-        Signature signature = Signature.getInstance("Ed25519");
-        signature.initSign(keyPair.getPrivate());
-        signature.update("hello".getBytes(StandardCharsets.UTF_8));
-        byte[] s = signature.sign();
+        // part 3 - Key exchange
+        KeyFactory keyFactorySender = KeyFactory.getInstance("EC");
+        String receiverPubKeyEncoded = didDocReceiverOnChain.getVerificationMethods()
+                .iterator().next().getVerificationMaterial().getPublicKey().toString();
+        byte[] receiverPubKeyDecoded = Multibase.decode(receiverPubKeyEncoded);
+        PublicKey pubKeyReceiver = keyFactorySender.generatePublic(new X509EncodedKeySpec(receiverPubKeyDecoded));
+        KeyAgreement kaSender = KeyAgreement.getInstance("ECDH", "BC");
+        kaSender.init(keyPairSender.getPrivate());
+        kaSender.doPhase(pubKeyReceiver, true);
+        SecretKey secretKeySender = kaSender.generateSecret("AES");
 
-        String encodedString = Base64.getEncoder().encodeToString(s);
-        System.out.println(encodedString);
+        KeyFactory keyFactoryReceiver = KeyFactory.getInstance("EC");
+        String senderPubKeyEncoded = didDocSenderOnChain.getVerificationMethods()
+                .iterator().next().getVerificationMaterial().getPublicKey().toString();
+        byte[] senderPubKeyDecoded = Multibase.decode(senderPubKeyEncoded);
+        PublicKey pubKeySender = keyFactoryReceiver.generatePublic(new X509EncodedKeySpec(senderPubKeyDecoded));
+        KeyAgreement kaReceiver = KeyAgreement.getInstance("ECDH", "BC");
+        kaReceiver.init(keyPairReceiver.getPrivate());
+        kaReceiver.doPhase(pubKeySender, true);
+        SecretKey secretKeyReceiver = kaReceiver.generateSecret("AES");
 
-//        byte[] key = ((JSONObject)((JSONArray)DidUtil.getJsonRepresentation(didDocument).get("verificationMethod")).get(0)).get("publicKeyBase58").toString().getBytes(StandardCharsets.UTF_8);
-        byte[] key = Multibase.decode(((JSONObject)((JSONArray)DidUtil.getJsonRepresentation(didDocument).get("verificationMethod")).get(0)).get("publicKeyBase58").toString());
-
-        var publicKey = new Ed25519PublicKeyParameters(key, 0);
-        Ed25519Signer verifier = new Ed25519Signer();
-        verifier.init(false, publicKey);
-        verifier.update("hello".getBytes(StandardCharsets.UTF_8), 0, "hello".getBytes(StandardCharsets.UTF_8).length);
-        boolean verified = verifier.verifySignature(s);
-        System.out.println(verified);
-
-        KeyFactory keyFactory = KeyFactory.getInstance("Ed25519");
-//        PublicKey pubKey = keyFactory.generatePublic(new RawEncodedKeySpec(key));
-        PublicKey pubKey = keyFactory.generatePublic(new X509EncodedKeySpec(keyPair.getPublic().getEncoded()));
-        Signature signature2 = Signature.getInstance("Ed25519");
-        signature2.initVerify(pubKey);
-        signature2.update("hello".getBytes(StandardCharsets.UTF_8));
-        boolean isTrue = signature2.verify(s);
-        System.out.println(isTrue);
+        assert Arrays.equals(secretKeySender.getEncoded(), secretKeyReceiver.getEncoded());
 
 
+        // part 4 - Signing/verification and encryption/decryption
+        String message = "Use of decentralised identifiers";
+
+        Signature senderSignature = Signature.getInstance("EcDSA");
+        senderSignature.initSign(keyPairSender.getPrivate());
+        senderSignature.update(message.getBytes(StandardCharsets.UTF_8));
+        byte[] senderSignedMessage = senderSignature.sign();
+
+        Signature receiverSignature = Signature.getInstance("EcDSA");
+        receiverSignature.initVerify(pubKeySender);
+        receiverSignature.update(message.getBytes(StandardCharsets.UTF_8));
+        boolean isVerified = receiverSignature.verify(senderSignedMessage);
+
+        assert isVerified;
+
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKeySender);
+        byte[] cipherText = cipher.doFinal(message.getBytes(StandardCharsets.UTF_8));
+
+        cipher.init(Cipher.DECRYPT_MODE, secretKeyReceiver);
+        String decryptMsg = new String(cipher.doFinal(cipherText));
+
+        assert message.equals(decryptMsg);
     }
 }
