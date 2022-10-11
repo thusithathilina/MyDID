@@ -74,7 +74,7 @@ public class AlgorandUtil {
     }
 
     /**
-     * Create a KMD v1 client
+     * Create a KMD v1 client to connect to default Algorand sandbox KMD
      *
      * @return KmdApi
      */
@@ -83,9 +83,11 @@ public class AlgorandUtil {
     }
 
     /**
-     * @param baseUrl
-     * @param token
-     * @return
+     * Create a KMD v1 client to connect to a given daemon
+     *
+     * @param baseUrl base path for the KMD
+     * @param token   token to access the daemon
+     * @return KmdApi
      */
     public static KmdApi createKmdApi(String baseUrl, String token) {
         KmdClient kmdClient = new KmdClient();
@@ -155,7 +157,7 @@ public class AlgorandUtil {
                 .rawtxn(Encoder.encodeToMsgPack(signedTransaction))
                 .execute();
         if (!response.isSuccessful()) {
-            throw new RuntimeException("Failed to execute the transaction");
+            throw new RuntimeException("Failed to execute the transaction\n" + response.message());
         }
 
         boolean done = false;
@@ -271,11 +273,11 @@ public class AlgorandUtil {
     }
 
     /**
-     * Retrive all the chain addresses belongs to a given wallet handle
+     * Retrieve all the chain addresses belongs to a given wallet handle
      *
-     * @param kmdApi
+     * @param kmdApi       Client for Algorand Key Management Daemon
      * @param walletHandle
-     * @return
+     * @return List of Addresses that are belong to given wallet
      * @throws ApiException
      * @throws NoSuchAlgorithmException
      */
@@ -295,20 +297,39 @@ public class AlgorandUtil {
     }
 
     /**
-     * @param kmdApi
-     * @param address
+     * Retrieve the private key from the wallet of a given address
+     *
+     * @param kmdApi       Client for Algorand Key Management Daemon
+     * @param address      Address
      * @param walletHandle
      * @param password
-     * @return
+     * @return private key as a byte[]
      * @throws ApiException
      */
     public static byte[] getPrivateKeyFromWallet(KmdApi kmdApi, Address address, String walletHandle, String password)
             throws ApiException {
+        if (kmdApi == null || address == null || walletHandle == null || walletHandle.isBlank() || password == null)
+            throw new IllegalArgumentException("kmdApi, address, walletHandle and password cannot be null");
         ExportKeyRequest req = new ExportKeyRequest();
         req.setAddress(address.toString());
         req.setWalletHandleToken(walletHandle);
         req.setWalletPassword(password);
         return kmdApi.exportKey(req).getPrivateKey();
+    }
+
+    /**
+     * Retrieve account information about a given Algorand account
+     *
+     * @param client  AlgodClient to connect to the chain
+     * @param account Algorand account
+     * @return com.algorand.algosdk.v2.client.model.Account representing account information
+     * @throws Exception
+     */
+    public static com.algorand.algosdk.v2.client.model.Account getAccountInfo(AlgodClient client, Account account)
+            throws Exception {
+        if (client == null || account == null)
+            throw new IllegalArgumentException("client, and account cannot be null");
+        return client.AccountInformation(account.getAddress()).execute().body();
     }
 
     /**
