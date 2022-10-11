@@ -1,7 +1,6 @@
 package org.ttd.did.sdk;
 
 import io.ipfs.multibase.Multibase;
-import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
 
 import java.security.PublicKey;
 
@@ -23,10 +22,6 @@ public class PublicKeyMultibase implements VerificationMaterial {
 
     @Override
     public String getPublicKey() {
-        if (publicKey instanceof EdDSAPublicKey) {
-            var tmpPubkey = ((EdDSAPublicKey) publicKey).getPointEncoding();
-            return Multibase.encode(Multibase.Base.Base58BTC, tmpPubkey);
-        }
         return Multibase.encode(Multibase.Base.Base58BTC, publicKey.getEncoded());
     }
 }

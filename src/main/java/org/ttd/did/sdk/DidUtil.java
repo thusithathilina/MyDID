@@ -3,12 +3,14 @@ package org.ttd.did.sdk;
 import io.ipfs.multibase.Multibase;
 import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
 import org.bouncycastle.jcajce.spec.RawEncodedKeySpec;
+import org.fisco.bcos.sdk.crypto.exceptions.UnsupportedCryptoTypeException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.*;
+import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,18 +74,14 @@ public class DidUtil {
         return createDidWithNamespace(keyPair, "", implicitController);
     }
 
-    private static DIDDocument createDidWithNamespace(KeyPair keyPair, String didNamespace, boolean implicitController) {
+    private static DIDDocument createDidWithNamespace(KeyPair keyPair, String namespace, boolean implicitController) {
         if (keyPair == null || keyPair.getPublic() == null || keyPair.getPrivate() == null)
             throw new IllegalArgumentException("KeyPair cannot be null");
 
         PublicKey publicKey = keyPair.getPublic();
         byte[] bytes = null;
         try {
-            if (publicKey instanceof EdDSAPublicKey) {
-                var tmpPubkey = ((EdDSAPublicKey) publicKey).getPointEncoding();
-                bytes = Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(tmpPubkey), 16);
-            } else
-                throw new IllegalArgumentException("Only supports EdDSAPublicKey");
+            bytes = Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(publicKey.getEncoded()), 16);
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
@@ -92,8 +90,8 @@ public class DidUtil {
 
         String didIdentifier = Multibase.encode(Multibase.Base.Base58BTC, bytes);
         DID did;
-        if (didNamespace != null && !didNamespace.trim().equalsIgnoreCase(""))
-            did = new DID(didNamespace, didIdentifier);
+        if (namespace != null && !namespace.trim().equalsIgnoreCase(""))
+            did = new DID(namespace, didIdentifier);
         else
             did = new DID(didIdentifier);
         DIDDocument didDocument = new DIDDocument(did);
@@ -106,6 +104,13 @@ public class DidUtil {
             defaultVerification.setController(did);
             defaultVerification.setType(VerificationsMaterials.PublicKeyMultibase);
             defaultVerification.setVerificationMaterial(new PublicKeyMultibase("base58", publicKey));
+            if (publicKey instanceof ECPublicKey)
+                defaultVerification.addProperty(Constants.CURVE_TYPE, Constants.CURVE_TYPE_EC);
+            else if (publicKey instanceof EdDSAPublicKey)
+                defaultVerification.addProperty(Constants.CURVE_TYPE, Constants.CURVE_TYPE_ED);
+            else
+                defaultVerification.addProperty(Constants.CURVE_TYPE, "None");
+            ;
             didDocument.getVerificationMethods().add(defaultVerification);
         } catch (URISyntaxException e) {
             e.printStackTrace();
@@ -122,30 +127,30 @@ public class DidUtil {
     public static JSONObject getJsonRepresentation(DIDDocument didDocument) {
         JSONObject didDoc = new JSONObject();
 
-        didDoc.put("id", didDocument.getId().getFullQualifiedIdentifier());
+        didDoc.put(Constants.ID, didDocument.getId().getFullQualifiedIdentifier());
 
         var alsoKnownAs = didDocument.getAlsoKnownAs();
         if (alsoKnownAs.size() == 1)
-            didDoc.put("controller", alsoKnownAs.iterator().next().toString());
+            didDoc.put(Constants.CONTROLLER, alsoKnownAs.iterator().next().toString());
         else if (alsoKnownAs.size() > 0) {
             Iterator<URI> iterator = alsoKnownAs.iterator();
             List<String> tmp = new ArrayList<>();
             while (iterator.hasNext()) {
                 tmp.add(iterator.next().toString());
             }
-            didDoc.put("alsoKnownAs", tmp);
+            didDoc.put(Constants.ALSO_KNOWN_AS, tmp);
         }
 
         var controllers = didDocument.getControllers();
         if (controllers.size() == 1)
-            didDoc.put("controller", controllers.iterator().next().getFullQualifiedIdentifier());
+            didDoc.put(Constants.CONTROLLER, controllers.iterator().next().getFullQualifiedIdentifier());
         else if (controllers.size() > 0) {
             Iterator<DID> iterator = controllers.iterator();
             List<String> tmp = new ArrayList<>();
             while (iterator.hasNext()) {
                 tmp.add(iterator.next().getFullQualifiedIdentifier());
             }
-            didDoc.put("controller", tmp);
+            didDoc.put(Constants.CONTROLLER, tmp);
         }
 
         var verificationMethods = didDocument.getVerificationMethods();
@@ -153,16 +158,17 @@ public class DidUtil {
             Iterator<VerificationMethod> iterator = verificationMethods.iterator();
             JSONArray tmpArray = new JSONArray();
             while (iterator.hasNext()) {
-                JSONObject tmpJson = new JSONObject();
+                JSONObject json = new JSONObject();
                 VerificationMethod verificationMethod = iterator.next();
-                tmpJson.put("id", verificationMethod.getId().getFullQualifiedUrl());
-                tmpJson.put("type", verificationMethod.getType());
-                tmpJson.put("controller", verificationMethod.getController().getFullQualifiedIdentifier());
+                json.put(Constants.ID, verificationMethod.getId().getFullQualifiedUrl());
+                json.put(Constants.TYPE, verificationMethod.getType());
+                json.put(Constants.CONTROLLER, verificationMethod.getController().getFullQualifiedIdentifier());
                 if (VerificationsMaterials.PublicKeyMultibase.name().equalsIgnoreCase(verificationMethod.getType()))
-                    tmpJson.put("publicKeyBase58", verificationMethod.getVerificationMaterial().getPublicKey());
-                tmpArray.put(tmpJson);
+                    json.put(Constants.PUBLIC_KEY_BASE_58, verificationMethod.getVerificationMaterial().getPublicKey());
+                verificationMethod.getOtherProperties().forEach(json::put);
+                tmpArray.put(json);
             }
-            didDoc.put("verificationMethod", tmpArray);
+            didDoc.put(Constants.VERIFICATION_METHOD, tmpArray);
         }
 
         var services = didDocument.getServices();
@@ -172,12 +178,12 @@ public class DidUtil {
             while (iterator.hasNext()) {
                 JSONObject tmpJson = new JSONObject();
                 Service service = iterator.next();
-                tmpJson.put("id", service.getId().toString());
-                tmpJson.put("type", service.getType());
-                tmpJson.put("serviceEndpoint", service.getServiceEndpoint().toString());
+                tmpJson.put(Constants.ID, service.getId().toString());
+                tmpJson.put(Constants.TYPE, service.getType());
+                tmpJson.put(Constants.SERVICE_ENDPOINT, service.getServiceEndpoint().toString());
                 tmpArray.put(tmpJson);
             }
-            didDoc.put("service", tmpArray);
+            didDoc.put(Constants.SERVICE, tmpArray);
         }
 
         return didDoc;
@@ -192,7 +198,8 @@ public class DidUtil {
      * @throws NoSuchAlgorithmException
      * @throws InvalidKeySpecException
      */
-    public static DIDDocument stringToDIDDocument(String didDocRepresentation) throws URISyntaxException, NoSuchAlgorithmException, InvalidKeySpecException {
+    public static DIDDocument stringToDIDDocument(String didDocRepresentation)
+            throws URISyntaxException, NoSuchAlgorithmException, InvalidKeySpecException {
         return jsonToDIDDocument(new JSONObject(didDocRepresentation));
     }
 
@@ -205,11 +212,12 @@ public class DidUtil {
      * @throws NoSuchAlgorithmException
      * @throws InvalidKeySpecException
      */
-    public static DIDDocument jsonToDIDDocument(JSONObject jsonDoc) throws URISyntaxException, NoSuchAlgorithmException, InvalidKeySpecException {
-        String didIdentifier = jsonDoc.get("id").toString();
+    public static DIDDocument jsonToDIDDocument(JSONObject jsonDoc)
+            throws URISyntaxException, NoSuchAlgorithmException, InvalidKeySpecException {
+        String didIdentifier = jsonDoc.get(Constants.ID).toString();
         DIDDocument didDocument = new DIDDocument(stringToDID(didIdentifier));
 
-        var tmp = jsonDoc.opt("alsoKnownAs");
+        var tmp = jsonDoc.opt(Constants.ALSO_KNOWN_AS);
         if (tmp != null) {
             if (tmp instanceof String)
                 didDocument.getAlsoKnownAs().add(new URI(tmp.toString()));
@@ -220,7 +228,7 @@ public class DidUtil {
                 throw new IllegalArgumentException("Invalid DID document. " + tmp);
         }
 
-        tmp = jsonDoc.opt("controller");
+        tmp = jsonDoc.opt(Constants.CONTROLLER);
         if (tmp != null) {
             if (tmp instanceof String)
                 didDocument.getControllers().add(stringToDID(tmp.toString()));
@@ -231,17 +239,23 @@ public class DidUtil {
                 throw new IllegalArgumentException("Invalid DID document. " + tmp);
         }
 
-        tmp = jsonDoc.opt("verificationMethod");
+        tmp = jsonDoc.opt(Constants.VERIFICATION_METHOD);
         if (tmp != null) {
             if (tmp instanceof JSONArray) {
-                KeyFactory keyFactory = KeyFactory.getInstance("Ed25519");
+                KeyFactory keyFactory = null;
                 for (Object o : (JSONArray) tmp) {
                     JSONObject jsonVm = (JSONObject) o;
                     VerificationMethod vm = new VerificationMethod();
-                    vm.setType(jsonVm.get("type").toString());
-                    vm.setController(stringToDID(jsonVm.get("controller").toString()));
-                    vm.setId(stringToDIDURL(jsonVm.get("id").toString()));
-                    byte[] key = Multibase.decode(jsonVm.get("publicKeyBase58").toString());
+                    vm.setType(jsonVm.get(Constants.TYPE).toString());
+                    vm.setController(stringToDID(jsonVm.get(Constants.CONTROLLER).toString()));
+                    vm.setId(stringToDIDURL(jsonVm.get(Constants.ID).toString()));
+                    byte[] key = Multibase.decode(jsonVm.get(Constants.PUBLIC_KEY_BASE_58).toString());
+                    if (jsonVm.get(Constants.CURVE_TYPE).equals(Constants.CURVE_TYPE_EC))
+                        keyFactory = KeyFactory.getInstance(Constants.CURVE_TYPE_EC);
+                    else if (jsonVm.get(Constants.CURVE_TYPE).equals(Constants.CURVE_TYPE_ED))
+                        keyFactory = KeyFactory.getInstance(Constants.ED25519);
+                    else
+                        throw new UnsupportedCryptoTypeException("This only supports generale EC or Edward curves");
                     PublicKey pubKey = keyFactory.generatePublic(new RawEncodedKeySpec(key));
                     vm.setVerificationMaterial(new PublicKeyMultibase("base58", pubKey));
                     didDocument.getVerificationMethods().add(vm);
@@ -250,15 +264,15 @@ public class DidUtil {
                 throw new IllegalArgumentException("Invalid DID document. " + tmp);
         }
 
-        tmp = jsonDoc.opt("service");
+        tmp = jsonDoc.opt(Constants.SERVICE);
         if (tmp != null) {
             if (tmp instanceof JSONArray) {
                 for (Object o : (JSONArray) tmp) {
                     JSONObject jsonVm = (JSONObject) o;
                     Service service = new Service();
-                    service.setType(jsonVm.get("type").toString());
-                    service.setId(new URI(jsonVm.get("id").toString()));
-                    service.setServiceEndpoint(new URI(jsonVm.get("serviceEndpoint").toString()));
+                    service.setType(jsonVm.get(Constants.TYPE).toString());
+                    service.setId(new URI(jsonVm.get(Constants.ID).toString()));
+                    service.setServiceEndpoint(new URI(jsonVm.get(Constants.SERVICE_ENDPOINT).toString()));
                     didDocument.getServices().add(service);
                 }
             } else
@@ -274,10 +288,12 @@ public class DidUtil {
      * @return DID object representation of the given string
      */
     public static DID stringToDID(String didString) {
-        didString = didString.replace(DID.SCHEME + ":", "").replace(DID.METHOD + ":", "");
+        didString = didString
+                .replace(DID.SCHEME + Constants.DID_SEPARATOR, "")
+                .replace(DID.METHOD + Constants.DID_SEPARATOR, "");
         DID did;
-        if (didString.contains(":")) {
-            var tmp = didString.split(":");
+        if (didString.contains(Constants.DID_SEPARATOR)) {
+            var tmp = didString.split(Constants.DID_SEPARATOR);
             did = new DID(tmp[0], tmp[1]);
         } else
             did = new DID(didString);
