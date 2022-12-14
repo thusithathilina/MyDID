@@ -2,11 +2,13 @@ package org.ttd.did.sdk;
 
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class DIDDocument {
-    private Set<String> context;
+    private List<String> context;
     private DID id;
     private Set<URI> alsoKnownAs;
     private Set<DID> controllers;
@@ -21,7 +23,7 @@ public class DIDDocument {
 
     public DIDDocument(DID id) {
         this.id = id;
-        context = new HashSet<>();
+        context = new ArrayList<>();
         controllers = new HashSet<>();
         alsoKnownAs = new HashSet<>();
         verificationMethods = new HashSet<>();
@@ -35,11 +37,11 @@ public class DIDDocument {
         metadata = new DIDDocumentMetadata(datetime, datetime, Constants.VERSION_DEFAULT);
     }
 
-    public Set<String> getContext() {
+    public List<String> getContext() {
         return context;
     }
 
-    public void setContext(Set<String> context) {
+    public void setContext(List<String> context) {
         this.context = context;
     }
 
