@@ -312,4 +312,35 @@ public class DidUtil {
         DID did = DidUtil.stringToDID(tmp.getSchemeSpecificPart());
         return new DIDURL(did, tmp.getPath(), tmp.getQuery(), tmp.getFragment());
     }
+
+    /**
+     * Convert a DID to corresponding URI object
+     *
+     * @param did DID object representation
+     * @return corresponding URI object of the DID
+     * @throws URISyntaxException
+     */
+    public static URI didToUri(DID did) throws URISyntaxException {
+        return new URI(did.getFullQualifiedIdentifier());
+    }
+
+    /**
+     * Convert a URI (URI representation of a DID) to corresponding DID object
+     *
+     * @param uri java.net.URI object representation of a valid DID
+     * @return corresponding DID object
+     */
+    public static DID uriToDID (URI uri) {
+        if (DID.SCHEME.equalsIgnoreCase(uri.getScheme()))
+            throw new IllegalArgumentException("Invalid DID URI");
+        String identifier = uri.getPath().substring(DID.METHOD.length() + 1);
+        int lastIndexOf = identifier.lastIndexOf(":");
+        String namespace = "";
+        if (lastIndexOf != -1)
+        {
+            namespace = identifier.substring(0, lastIndexOf);
+            identifier = identifier.substring(lastIndexOf + 1);
+        }
+        return new DID(namespace, identifier);
+    }
 }

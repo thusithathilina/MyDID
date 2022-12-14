@@ -44,9 +44,11 @@ public final class DID {
     }
 
     private static void validateNamespace(String namespace) {
+        if (namespace.isBlank())
+            return;
         namespace.chars().forEach(c -> {
-            if (!(Character.isAlphabetic(c) || Character.isDigit(c)))
-                throw new IllegalArgumentException("namespace only allow alphanumeric characters");
+            if (!(Character.isLetterOrDigit(c)))
+                throw new IllegalArgumentException("namespace only allow letters and digits");
         });
     }
 }
