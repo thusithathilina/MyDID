@@ -70,7 +70,7 @@ public class Main {
 
         JSONObject documentReceiver = AlgorandUtil.getDIDDocument(indexerClient, didDocReceiver.getId());
         if (documentReceiver == null) {
-            AlgorandUtil.storeDID(algodClient, steward, didDocReceiver);
+            AlgorandUtil.storeDID(algodClient, steward, didDocReceiver, false, true);
             Thread.sleep(1000);
             documentReceiver = AlgorandUtil.getDIDDocument(indexerClient, didDocReceiver.getId());
         }
