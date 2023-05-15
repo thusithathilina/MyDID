@@ -92,6 +92,17 @@ public class IPFSUtil {
     }
 
     /**
+     * Retrieve the corresponding DID document of the given DID using default IPFS client
+     *
+     * @param did String representation of the DID
+     * @return String representation of the DID document
+     * @throws IOException when cannot store the document
+     */
+    public static String getDIDDocument(String did) throws IOException {
+        return new String(createIPFSClient().files.read(did));
+    }
+
+    /**
      * Retrieve the corresponding DID document of the given DID
      *
      * @param ipfsClient IPFS object to interact with teh IPFS

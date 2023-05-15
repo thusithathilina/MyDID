@@ -18,12 +18,15 @@ import com.algorand.algosdk.v2.client.common.Response;
 import com.algorand.algosdk.v2.client.model.PendingTransactionResponse;
 import com.algorand.algosdk.v2.client.model.PostTransactionsResponse;
 import com.algorand.algosdk.v2.client.model.TransactionsResponse;
+import io.ipfs.api.IPFS;
 import io.ipfs.multibase.Multibase;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.json.JSONObject;
 import org.ttd.did.sdk.DID;
 import org.ttd.did.sdk.DIDDocument;
 import org.ttd.did.sdk.DidUtil;
 import org.ttd.did.sdk.VerificationMethod;
+import org.ttd.ipfs.IPFSUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -182,9 +185,7 @@ public class AlgorandUtil {
      * @throws Exception when the transaction fails
      */
     public static boolean storeDID(AlgodClient client, Account owner, DIDDocument didDoc) throws Exception {
-        if (client == null || owner == null || didDoc == null)
-            throw new IllegalArgumentException("client, owner and didDoc cannot be null or blank");
-        return storeDID(client, owner, didDoc, false);
+        return storeDID(client, owner, didDoc, false, false);
     }
 
     /**
@@ -197,6 +198,44 @@ public class AlgorandUtil {
      * @throws Exception when the transaction fails
      */
     public static boolean storeDID(AlgodClient client, Account owner, DIDDocument didDoc, boolean verifyOwnership)
+            throws Exception {
+        IPFSUtil.createIPFSClient();
+        return storeDID(client, owner, didDoc, verifyOwnership, false);
+    }
+
+    /**
+     * Store DIDDocument directly in the Algorand blockchain or IPFS.
+     *
+     * @param client          AlgodClient to connect to the chain
+     * @param owner           Algorand account that initiate the storing transaction
+     * @param didDoc          DIDDocument object to be put on the chain
+     * @param verifyOwnership if set to true DIDDocument should be owned by the owner
+     * @param useIpfs         if set to true DIDDocument will be stored in the IPFS and the hash nad path on blockchain
+     * @return true if stored successfully
+     * @throws Exception when the transaction fails or cannot save on IPFS
+     */
+    public static boolean storeDID(AlgodClient client, Account owner, DIDDocument didDoc, boolean verifyOwnership,
+                                   boolean useIpfs)
+            throws Exception {
+        if (client == null || owner == null || didDoc == null)
+            throw new IllegalArgumentException("Client, owner and didDoc cannot be null");
+
+        return storeDID(client, owner, didDoc, verifyOwnership, useIpfs, IPFSUtil.createIPFSClient());
+    }
+
+    /**
+     *
+     * @param client          AlgodClient to connect to the chain
+     * @param owner           Algorand account that initiate the storing transaction
+     * @param didDoc          DIDDocument object to be stored
+     * @param verifyOwnership if set to true DIDDocument should be owned by the owner
+     * @param useIpfs         if set to true DIDDocument will be stored in the IPFS and the hash nad path on blockchain
+     * @param ipfsClient      IPFS object to connect to the IPFS server
+     * @return true if stored successfully
+     * @throws Exception when the transaction fails or cannot save on IPFS
+     */
+    public static boolean storeDID(AlgodClient client, Account owner, DIDDocument didDoc, boolean verifyOwnership,
+                                   boolean useIpfs, IPFS ipfsClient)
             throws Exception {
         if (client == null || owner == null || didDoc == null)
             throw new IllegalArgumentException("Client, owner and didDoc cannot be null");
@@ -217,7 +256,15 @@ public class AlgorandUtil {
                 throw new IllegalArgumentException("DIDDocument ownership verification failed. " +
                         "Account owner must be the DIDDocument owner");
         }
-        var content = didDoc.getId().getFullQualifiedIdentifier() + "<<<>>>" + DidUtil.getJsonRepresentation(didDoc);
+        var docContent = DidUtil.getJsonRepresentation(didDoc).toString();
+        var content = didDoc.getId().getFullQualifiedIdentifier();
+        if (useIpfs) {
+            content += "|ipfs|" +
+                    IPFSUtil.storeDIDDocument(ipfsClient, didDoc.getId().getIdentifier(), docContent.getBytes()) +
+                    "|hash|" +
+                    DigestUtils.sha256Hex(docContent.getBytes());
+        } else
+            content += "|onchain|" + docContent;
         Transaction tx = Transaction.PaymentTransactionBuilder()
                 .lookupParams(client)
                 .sender(owner.getAddress())
@@ -263,7 +310,18 @@ public class AlgorandUtil {
 
         JSONObject didDocument = null;
         for (var tmptx : transactions.body().transactions) {
-            JSONObject tmpJson = new JSONObject(new String(tmptx.note).split("<<<>>>")[1]);
+            var tmp = new String(tmptx.note).split("\\|");
+            String tmpDoc;
+            if (tmp[1].equalsIgnoreCase("onchain")) {
+                tmpDoc = tmp[2];
+            } else if (tmp[1].equalsIgnoreCase("ipfs")){
+                tmpDoc = IPFSUtil.getDIDDocument(tmp[2]);
+                if (!tmp[4].equalsIgnoreCase(DigestUtils.sha256Hex(tmpDoc.getBytes())))
+                    throw new Exception("Hash mismatch");
+            } else
+                continue;
+
+            JSONObject tmpJson = new JSONObject(tmpDoc);
             if (fullQualifiedDid.equals(tmpJson.get("id"))) {
                 didDocument = new JSONObject(tmpJson.toString());
                 break;
