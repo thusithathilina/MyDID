@@ -17,7 +17,7 @@ public class Claim {
         return name;
     }
 
-    public Object getValue() {
-        return value;
+    public String getValue() {
+        return value.toString();
     }
 }

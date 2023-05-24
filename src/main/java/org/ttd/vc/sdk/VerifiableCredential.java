@@ -2,21 +2,22 @@ package org.ttd.vc.sdk;
 
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class VerifiableCredential {
     private List<URI> contexts;
     private URI id;
     private List<URI> types;
-    private List<Claim> credentialSubject;
-    private List<Signature> proofs;
+    private CredentialSubject credentialSubject;
+    private List<Proof> proofs;
     private URI issuer;
     private LocalDateTime issuanceDate;
     private LocalDateTime expirationDate;
     private Status status;
 
-    private VerifiableCredential(List<URI> contexts, URI id, List<URI> types, List<Claim> credentialSubject,
-                                 List<Signature> proofs, URI issuer, LocalDateTime issuanceDate,
+    private VerifiableCredential(List<URI> contexts, URI id, List<URI> types, CredentialSubject credentialSubject,
+                                 List<Proof> proofs, URI issuer, LocalDateTime issuanceDate,
                                  LocalDateTime expirationDate, Status status) {
         this.contexts = contexts;
         this.id = id;
@@ -41,11 +42,11 @@ public class VerifiableCredential {
         return types;
     }
 
-    public List<Claim> getCredentialSubject() {
+    public CredentialSubject getCredentialSubject() {
         return credentialSubject;
     }
 
-    public List<Signature> getProofs() {
+    public List<Proof> getProofs() {
         return proofs;
     }
 
@@ -66,11 +67,11 @@ public class VerifiableCredential {
     }
 
     public static class Builder {
-        private List<URI> contexts;
+        private List<URI> contexts = new ArrayList<>();
         private URI id;
-        private List<URI> types;
-        private List<Claim> credentialSubject;
-        private List<Signature> proofs;
+        private List<URI> types = new ArrayList<>();
+        private CredentialSubject credentialSubject;
+        private List<Proof> proofs = new ArrayList<>();
         private URI issuer;
         private LocalDateTime issuanceDate;
         private LocalDateTime expirationDate;
@@ -81,8 +82,18 @@ public class VerifiableCredential {
             return this;
         }
 
+        public Builder context(URI context) {
+            contexts.add(context);
+            return this;
+        }
+
         public Builder id(URI id) {
             this.id = id;
+            return this;
+        }
+
+        public Builder id(String id) {
+            this.id = URI.create(id);
             return this;
         }
 
@@ -91,18 +102,38 @@ public class VerifiableCredential {
             return this;
         }
 
-        public Builder credentialSubject(List<Claim> credentialSubject) {
+        public Builder type(URI type) {
+            types.add(type);
+            return this;
+        }
+
+        public Builder type(String type) {
+            types.add(URI.create(type));
+            return this;
+        }
+
+        public Builder credentialSubject(CredentialSubject credentialSubject) {
             this.credentialSubject = credentialSubject;
             return this;
         }
 
-        public Builder proofs(List<Signature> proofs) {
+        public Builder proofs(List<Proof> proofs) {
             this.proofs = proofs;
+            return this;
+        }
+
+        public Builder proof(Proof proof) {
+            proofs.add(proof);
             return this;
         }
 
         public Builder issuer(URI issuer) {
             this.issuer = issuer;
+            return this;
+        }
+
+        public Builder issuer(String issuer) {
+            this.issuer = URI.create(issuer);
             return this;
         }
 
@@ -122,7 +153,11 @@ public class VerifiableCredential {
         }
 
         public VerifiableCredential build() {
-            return new VerifiableCredential(contexts, id, types, credentialSubject, proofs, issuer, issuanceDate,
+            if (id == null || types == null || credentialSubject == null || proofs == null || proofs.size() == 0 ||
+                    issuer == null || issuanceDate == null)
+                throw new RuntimeException("ID, Type, CredentialSubject, Proofs, IssuanceDate and " +
+                        "Issuer cannot be null or empty");
+            return new VerifiableCredential(contexts, id, types, credentialSubject, proofs, issuer,issuanceDate,
                     expirationDate, status);
         }
     }
