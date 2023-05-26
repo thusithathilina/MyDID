@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 public class DIDDocument {
-    private List<String> context;
+    private List<URI> context;
     private DID id;
     private Set<URI> alsoKnownAs;
     private Set<DID> controllers;
@@ -36,14 +36,14 @@ public class DIDDocument {
         capabilityDelegations = new HashSet<>();
         services = new HashSet<>();
         var datetime = LocalDateTime.now();
-        metadata = new DIDDocumentMetadata(datetime, datetime, Constants.VERSION_DEFAULT);
+        metadata = new DIDDocumentMetadata(datetime, datetime, Constants.DID_VERSION_DEFAULT);
     }
 
-    public List<String> getContext() {
+    public List<URI> getContext() {
         return context;
     }
 
-    public void setContext(List<String> context) {
+    public void setContext(List<URI> context) {
         this.context = context;
     }
 

@@ -96,7 +96,7 @@ public class DidUtil {
         else
             did = new DID(didIdentifier);
         DIDDocument didDocument = new DIDDocument(did);
-        didDocument.getContext().add(Constants.CONTEXT_W3C_DEFAULT);
+        didDocument.getContext().add(Constants.DID_DEFAULT_CONTEXT);
         if (implicitController)
             didDocument.getControllers().add(did);
         VerificationMethod defaultVerification = new VerificationMethod();

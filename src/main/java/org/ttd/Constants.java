@@ -1,9 +1,13 @@
 package org.ttd;
 
-public class Constants {
-    public static final String CONTEXT_W3C_DEFAULT = "https://www.w3.org/ns/did/v1";
-    public static final String VERSION_DEFAULT = "1";
+import java.net.URI;
 
+public class Constants {
+    public static final URI DID_DEFAULT_CONTEXT = URI.create("https://www.w3.org/ns/did/v1");
+    public static final URI VC_DEFAULT_CONTEXT = URI.create("https://www.w3.org/2018/credentials/v1");
+
+    public static final String DID_VERSION_DEFAULT = "1";
+    public static final String CONTEXT = "@context";
     public static final String DID_SEPARATOR = ":";
 
     public static final String ID = "id";
