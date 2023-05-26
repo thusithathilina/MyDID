@@ -5,6 +5,7 @@ import org.bouncycastle.jcajce.interfaces.EdDSAPublicKey;
 import org.fisco.bcos.sdk.crypto.exceptions.UnsupportedCryptoTypeException;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.ttd.Constants;
 
 import java.net.URI;
 import java.net.URISyntaxException;

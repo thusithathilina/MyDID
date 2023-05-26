@@ -1,5 +1,7 @@
 package org.ttd.did.sdk;
 
+import org.ttd.Constants;
+
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
