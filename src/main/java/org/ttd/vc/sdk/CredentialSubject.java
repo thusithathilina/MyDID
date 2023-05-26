@@ -37,4 +37,8 @@ public class CredentialSubject {
         claims.forEach(claim -> jsonObject.put(claim.getName(), claim.getValue()));
         return jsonObject;
     }
+
+    public String toString() {
+        return toJson().toString();
+    }
 }

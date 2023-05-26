@@ -25,4 +25,8 @@ public class Constants {
     public static final String CURVE_TYPE_EC = "EC";
     public static final String CURVE_TYPE_ED = "Ed";
 
+    public static final String ISSUER = "issuer";
+    public static final String ISSUANCE_DATE = "issuanceDate";
+    public static final String CREDENTIAL_SUBJECT = "credentialSubject";
+    public static final String PROOF = "proof";
 }
